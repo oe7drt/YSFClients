@@ -61,6 +61,7 @@ private:
 	std::string     m_current;
 	std::string     m_startup;
 	std::string     m_options;
+	std::string     m_info;
 	bool            m_exclude;
 	CTimer          m_inactivityTimer;
 	CTimer          m_lostTimer;

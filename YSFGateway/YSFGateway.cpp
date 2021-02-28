@@ -211,8 +211,14 @@ int CYSFGateway::run()
 
 	bool ysfNetworkEnabled = m_conf.getYSFNetworkEnabled();
 	if (ysfNetworkEnabled) {
+		unsigned int txFrequency = m_conf.getTxFrequency();
+		unsigned int rxFrequency = m_conf.getRxFrequency();
+		std::string locator = calculateLocator();
+		std::string name = m_conf.getName();
+		unsigned int id = m_conf.getId();
+
 		unsigned int ysfPort = m_conf.getYSFNetworkPort();
-		m_ysfNetwork = new CYSFNetwork(ysfPort, m_callsign, debug);
+		m_ysfNetwork = new CYSFNetwork(ysfPort, m_callsign, rxFrequency, txFrequency, locator, name, id, debug);
 	}
 
 	m_fcsNetworkEnabled = m_conf.getFCSNetworkEnabled();
@@ -220,11 +226,12 @@ int CYSFGateway::run()
 		unsigned int txFrequency = m_conf.getTxFrequency();
 		unsigned int rxFrequency = m_conf.getRxFrequency();
 		std::string locator = calculateLocator();
+		std::string name = m_conf.getName();	// KBC 2020-09-07
 		unsigned int id = m_conf.getId();
 
 		unsigned int fcsPort = m_conf.getFCSNetworkPort();
 
-		m_fcsNetwork = new CFCSNetwork(fcsPort, m_callsign, rxFrequency, txFrequency, locator, id, debug);
+		m_fcsNetwork = new CFCSNetwork(fcsPort, m_callsign, rxFrequency, txFrequency, locator, name, id, debug);
 		ret = m_fcsNetwork->open();
 		if (!ret) {
 			::LogError("Cannot open the FCS reflector network port");
