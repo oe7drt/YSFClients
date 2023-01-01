@@ -29,7 +29,7 @@ const char* FCS_VERSION = "MMDVM";
 
 const unsigned int BUFFER_LENGTH = 200U;
 
-CFCSNetwork::CFCSNetwork(unsigned int port, const std::string& callsign, unsigned int rxFrequency, unsigned int txFrequency, const std::string& locator, unsigned int id, bool debug) :
+CFCSNetwork::CFCSNetwork(unsigned int port, const std::string& callsign, unsigned int rxFrequency, unsigned int txFrequency, const std::string& locator, const std::string& name, unsigned int id, bool debug) :
 m_socket(port),
 m_debug(debug),
 m_addr(),
@@ -38,6 +38,7 @@ m_ping(NULL),
 m_options(NULL),
 m_opt(),
 m_info(NULL),
+m_info_long(NULL),
 m_reflector(),
 m_print(),
 m_buffer(1000U, "FCS Network Buffer"),
@@ -46,9 +47,13 @@ m_pingTimer(1000U, 0U, 800U),
 m_resetTimer(1000U, 1U),
 m_state(FCS_UNLINKED)
 {
-	m_info = new unsigned char[100U];
-	::sprintf((char*)m_info, "%9u%9u%-6.6s%-12.12s%7u", rxFrequency, txFrequency, locator.c_str(), FCS_VERSION, id);
-	::memset(m_info + 43U, ' ', 57U);
+	m_info_long = new unsigned char[100U];
+	::sprintf((char*)m_info_long, "%9u%9u%-6.6s%-12.12s%7u", rxFrequency, txFrequency, locator.c_str(), FCS_VERSION, id);
+	::memset(m_info_long + 43U, ' ', 57U);
+
+	m_info = new unsigned char[80U];
+	::sprintf((char*)m_info, "FCSIFCS99999%9u%9u%-6.6s%-20.20s%-12.12s%7u", rxFrequency, txFrequency, locator.c_str(), name.c_str(), FCS_VERSION, id);	// KBC 2020-09-07
+	::memset(m_info + 75U, ' ', 5U);
 
 	m_ping = new unsigned char[25U];
 	::memcpy(m_ping + 0U, "PING", 4U);
@@ -65,6 +70,7 @@ m_state(FCS_UNLINKED)
 CFCSNetwork::~CFCSNetwork()
 {
 	delete[] m_info;
+	delete[] m_info_long;
 	delete[] m_ping;
 	delete[] m_options;
 }
@@ -198,14 +204,15 @@ void CFCSNetwork::clock(unsigned int ms)
 		if (m_state == FCS_LINKING)
 			LogMessage("Linked to %s", m_print.c_str());
 		m_state = FCS_LINKED;
-		writeInfo();
+		writeInfo(m_print);
 		writeOptions(m_print);
 	}
 
 	if (length == 10 && m_state == FCS_LINKING) {
 		LogMessage("Linked to %s", m_print.c_str());
 		m_state = FCS_LINKED;
-		writeInfo();
+		writeInfoLong(m_print);
+		writeInfo(m_print);
 		writeOptions(m_print);
 	}
 
@@ -262,15 +269,28 @@ void CFCSNetwork::close()
 	LogMessage("Closing FCS network connection");
 }
 
-void CFCSNetwork::writeInfo()
+void CFCSNetwork::writeInfo(const std::string& reflector)
+{
+	if (m_state != FCS_LINKED)
+		return;
+
+	::memcpy(m_info + 4U, (reflector.substr(0,6)+reflector.substr(7,2)).c_str(), 8U);
+
+	if (m_debug)
+		CUtils::dump(1U, "FCS Network Data Sent", m_info, 100U);
+
+	m_socket.write(m_info, 80U, m_addr, m_addrLen);
+}
+
+void CFCSNetwork::writeInfoLong(const std::string& reflector)
 {
 	if (m_state != FCS_LINKED)
 		return;
 
 	if (m_debug)
-		CUtils::dump(1U, "FCS Network Data Sent", m_info, 100U);
+		CUtils::dump(1U, "FCS Network Data Sent long", m_info_long, 100U);
 
-	m_socket.write(m_info, 100U, m_addr, m_addrLen);
+	m_socket.write(m_info_long, 100U, m_addr, m_addrLen);
 }
 
 void CFCSNetwork::writePing()
@@ -292,7 +312,7 @@ void CFCSNetwork::writeOptions(const std::string& reflector)
 	if (m_opt.size() < 1)
 		return;
 
-	::memset(m_options + 14U, 0x20U, 36U);
+	::memset(m_options + 4U, 0x20U, 46U);
 	::memcpy(m_options + 4U, (reflector.substr(0,6)+reflector.substr(7,2)).c_str(), 8U);
 	::memcpy(m_options + 12U, m_opt.c_str(), m_opt.size());
 
